@@ -1,0 +1,34 @@
+# Análisis de datos
+pandas==2.1.4
+numpy==1.26.3
+
+# Utilidades
+python-dotenv==1.0.1
+loguru==0.7.2
+tqdm==4.66.2
+
+# Visualización
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+# RAG y LLM
+faiss-cpu==1.7.4
+langchain==0.3.17
+langchain-community==0.3.16
+langchain-core==0.3.40
+# Cuando quieras actualizar a las nuevas versiones, descomenta estas líneas:
+# langchain-huggingface==0.0.8
+# langchain-ollama==0.0.3
+
+# Modelos de embeddings
+sentence-transformers==2.3.1
+transformers==4.37.2
+# Especificar PyTorch con soporte CUDA
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.2+cu121
+torchaudio==2.1.2+cu121
+torchvision==0.16.2+cu121
+
+# Frontend
+streamlit==1.32.0
+plotly==5.18.0
