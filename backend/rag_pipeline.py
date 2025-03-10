@@ -15,7 +15,7 @@ import torch
 import numpy as np
 import faiss
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -98,24 +98,9 @@ class RAGPipeline:
             # Cargar el modelo de embeddings
             logger.info(f"Cargando modelo de embeddings: {self.embedding_model}")
             
-            # Verificar disponibilidad de GPU
-            if torch.cuda.is_available():
-                device = "cuda"
-                logger.info(f"GPU detectada: {torch.cuda.get_device_name(0)}")
-            else:
-                device = "cpu"
-                logger.warning("No se detectó GPU, usando CPU para los embeddings")
-            
-            # Corregir el formato del modelo para Hugging Face si es necesario
-            embedding_model = self.embedding_model
-            if ":" in embedding_model:
-                embedding_model = "ibm-granite/granite-embedding-278m-multilingual"
-            
-            # Inicializar el modelo de embeddings
-            embeddings = HuggingFaceEmbeddings(
-                model_name=embedding_model,
-                model_kwargs={'device': device}
-            )
+            # Inicializar el modelo de embeddings usando Ollama
+            embeddings = OllamaEmbeddings(model=self.embedding_model)
+            logger.info(f"Modelo de embeddings cargado usando Ollama")
             
             # Cargar el vectorstore FAISS
             logger.info(f"Cargando vectorstore FAISS desde: {self.vectorstore_path}")

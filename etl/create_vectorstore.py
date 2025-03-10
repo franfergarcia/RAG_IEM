@@ -15,9 +15,8 @@ import random
 import faiss
 import torch
 from langchain_community.vectorstores.faiss import FAISS as LangchainFAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain.schema import Document
-from sentence_transformers import SentenceTransformer
 import importlib
 
 # Añadir el directorio raíz al path para importar módulos
@@ -57,7 +56,7 @@ def convert_to_float(value):
 def create_vectorstore():
     """
     Crea el vectorstore a partir de los datos procesados usando FAISS y
-    SentenceTransformers para generar embeddings localmente.
+    Ollama para generar embeddings.
     """
     # Obtener rutas de los archivos
     processed_csv = os.getenv("PROCESSED_CSV", "processed_data.csv")
@@ -101,39 +100,12 @@ def create_vectorstore():
         if not embedding_model:
             logger.error("No se encontró la variable de entorno EMBEDDING_MODEL en el archivo .env")
             return False
-        
-        # Corregir el formato del modelo para Hugging Face
-        # El formato correcto es "ibm-granite/granite-embedding-278m-multilingual"
-        if ":" in embedding_model:
-            # Reemplazar "granite-embedding:278m" por "ibm-granite/granite-embedding-278m-multilingual"
-            embedding_model = "ibm-granite/granite-embedding-278m-multilingual"
             
-        logger.info(f"Cargando modelo de embeddings {embedding_model}...")
+        logger.info(f"Cargando modelo de embeddings {embedding_model} usando Ollama...")
         
-        # Verificar disponibilidad de GPU y configurar CUDA
-        cuda_available = torch.cuda.is_available()
-        if cuda_available:
-            device = "cuda"
-            logger.info(f"GPU detectada: {torch.cuda.get_device_name(0)}")
-            # Forzar el uso de CUDA
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        else:
-            device = "cpu"
-            logger.warning("No se detectó GPU o CUDA no está configurado correctamente. Usando CPU para los embeddings.")
-            logger.info("Esto puede hacer que el proceso sea más lento, pero funcionará correctamente.")
-            
-        # Verificar si CUDA está realmente disponible
-        logger.info(f"CUDA disponible: {torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            logger.info(f"Número de GPUs disponibles: {torch.cuda.device_count()}")
-            for i in range(torch.cuda.device_count()):
-                logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)}")
-        
-        # Inicializar el modelo directamente con SentenceTransformer
-        model = SentenceTransformer(embedding_model, device=device)
-        
-        # Configurar para usar GPU si está disponible
-        logger.info(f"Modelo cargado en dispositivo: {device}")
+        # Inicializar el modelo de embeddings con Ollama
+        embeddings_model = OllamaEmbeddings(model=embedding_model)
+        logger.info(f"Modelo de embeddings cargado correctamente con Ollama")
         
         # Crear documentos para FAISS
         logger.info("Creando documentos para FAISS...")
@@ -194,8 +166,8 @@ def create_vectorstore():
             texts = [doc.page_content for doc in batch]
             
             try:
-                # Generar embeddings para todo el lote a la vez
-                embeddings_batch = model.encode(texts, show_progress_bar=False)
+                # Generar embeddings para todo el lote a la vez usando Ollama
+                embeddings_batch = [embeddings_model.embed_query(text) for text in tqdm(texts, desc="Generando embeddings", leave=False)]
                 
                 # Guardar embeddings
                 for j, doc in enumerate(batch):
@@ -203,7 +175,7 @@ def create_vectorstore():
                     embeddings_dict[doc_id] = {
                         "text": doc.page_content,
                         "metadata": doc.metadata,
-                        "embedding": embeddings_batch[j].tolist()
+                        "embedding": embeddings_batch[j]
                     }
                 
                 # Guardar progreso periódicamente
@@ -264,11 +236,8 @@ def create_vectorstore():
         index = faiss.IndexFlatL2(embedding_dim)
         index.add(embeddings_array)
         
-        # Crear objeto embeddings para LangChain - aquí usamos el modelo correcto
-        hf_embeddings = HuggingFaceEmbeddings(
-            model_name=embedding_model,
-            model_kwargs={'device': device}
-        )
+        # Crear objeto embeddings para LangChain - aquí usamos Ollama
+        hf_embeddings = OllamaEmbeddings(model=embedding_model)
         
         # Crear vectorstore apropiadamente utilizando la API moderna de LangChain
         # Creamos los documentos y metadatos que LangChain espera
@@ -299,7 +268,7 @@ def create_vectorstore():
         metadata = {
             "model": embedding_model,
             "document_count": len(documents),
-            "embedding_dimension": len(model.encode("test text")),
+            "embedding_dimension": len(embeddings_list[0]),
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "columns": list(df.columns),
             "vectorstore_version": "1.0",  # Añadir versión para futuras compatibilidades
