@@ -1,6 +1,7 @@
 """
 Punto de entrada principal para el sistema RAG de análisis de datos sociales.
 Este script permite ejecutar tanto el frontend como las utilidades de ETL.
+PRUEBA TEST
 """
 import os
 import sys
